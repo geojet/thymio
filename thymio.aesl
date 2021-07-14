@@ -1,0 +1,114 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<constant value="2" name="LINE_FOLLOW"/>
+<constant value="3" name="REVERSE"/>
+<constant value="300" name="SPEED"/>
+<constant value="0" name="STOP"/>
+<constant value="500" name="THRESHOLD"/>
+<constant value="200" name="TURN"/>
+<constant value="1" name="WANDER"/>
+
+
+<!--node Rob2 on DESKTOP-GDLO4J5 - 19660-->
+<node nodeId="{fa58167c-d041-4bff-b873-39f8281eeec6}" name="Rob2 on DESKTOP-GDLO4J5 - 19660"><![CDATA[#initialise with state wandering
+var state = WANDER
+# counter to check if out of line following sequence
+var counter = 0
+#to make the bot search for the line
+onevent button.forward
+		state = WANDER
+#to reverse the bot following a line
+onevent button.backward
+		if state == LINE_FOLLOW then
+				state = REVERSE
+		end
+		call leds.top(0, 32, 0)
+# to stop and restart the bot
+onevent button.center
+		state = STOP
+		
+onevent prox
+		if  state == WANDER then
+				motor.left.target = SPEED
+				motor.right.target = SPEED
+				# while wandering the blue led will be lit
+				call leds.top(0, 0, 32)
+				# while wandering if an obstacle come to deivate from it
+				if prox.horizontal[3] >= 2000 then
+						motor.left.target = 0
+						motor.right.target = SPEED
+				end
+				# locating a line to follow
+				if prox.ground.delta[0] < THRESHOLD or
+				 prox.ground.delta[1] < THRESHOLD then
+						if prox.ground.delta[0] < THRESHOLD then
+								motor.left.target = SPEED
+								motor.right.target = -SPEED
+						elseif prox.ground.delta[1] < THRESHOLD then
+								motor.left.target = -SPEED
+								motor.right.target = SPEED
+						end
+						# starting timer to trigger the line follow state
+						timer.period[0] = TURN
+				end
+		end
+		if  state == LINE_FOLLOW then
+				# to check if bot is not following line
+				if  prox.ground.reflected[0] > THRESHOLD and  prox.ground.reflected[1] > THRESHOLD then
+						counter++
+				else
+						counter = 0
+				end
+				if counter > 100 then
+						state = WANDER
+				end
+				# while obstacle comes during following line
+				if prox.horizontal[3] >= 2000 then
+						motor.left.target = 0
+						motor.right.target = SPEED
+				elseif prox.ground.reflected[0] < THRESHOLD then
+						motor.left.target = 100
+						motor.right.target = SPEED
+				else
+						motor.left.target = SPEED
+						motor.right.target = 100
+				end
+		end
+		# to reverse
+		if state == REVERSE then
+				timer.period[0] = TURN+100
+				callsub turnRight
+		end
+		# to reverse
+		if  state == STOP then
+			callsub stop
+		end
+# subroutine to turn the bot right
+sub turnRight
+		motor.left.target = SPEED
+		motor.right.target = -SPEED
+return
+# subroutine to stop the bot
+sub stop
+		motor.left.target = 0
+		motor.right.target = 0
+		# when stopped red led will be lit
+		call leds.top(32,0, 0)
+return
+# timer triggered
+onevent timer0
+		if state == WANDER or state == REVERSE then
+				motor.left.target = 0
+				motor.right.target = 0
+				timer.period[0]=0
+				state = LINE_FOLLOW
+				# while line follow green led will be lit
+				call leds.top(0, 32, 0)
+		end
+return]]></node>
+
+
+</network>
